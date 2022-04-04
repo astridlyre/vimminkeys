@@ -1,5 +1,5 @@
-const SCROLL_LINE_COUNT = 1
-const SCROLL_HORIZONTAL_PIXELS = 5
+const SCROLL_LINE_COUNT = 5
+const SCROLL_HORIZONTAL_PIXELS = 20
 const normalize = (repetition) => (repetition == '' ? 1 : +repetition)
 
 const actions = [
@@ -13,6 +13,8 @@ const actions = [
   { keyCombination: 'gT', command: 'cmd_activatePreviousTab' },
   { keyCombination: 'H', command: 'cmd_historyBack' },
   { keyCombination: 'L', command: 'cmd_historyForward' },
+  { keyCombination: 'd', command: 'cmd_scrollHalfPageDown' },
+  { keyCombination: 'u', command: 'cmd_scrollHalfPageUp' },
 ]
 
 const commands = {
@@ -26,13 +28,13 @@ const commands = {
     window.scrollByLines(SCROLL_LINE_COUNT * normalize(repetition))
   },
   cmd_scrollLineUp: function scollLineUp(repetition) {
-    window.scrollByLines(-SCROLL_LINE_COUNT * normalize(repetition))
+    window.scrollBy(-SCROLL_LINE_COUNT * normalize(repetition))
   },
   cmd_scrollFileBottom: function scrollToBottom() {
-    window.scrollTo(window.scrollX, document.body.scrollHeight)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })
   },
   cmd_scrollFileTop: function scrollToTop() {
-    window.scrollTo(window.scrollX, 0)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   },
   cmd_activateNextTab: function activateNextTab(repetition) {
     browser.runtime.sendMessage({
@@ -56,6 +58,12 @@ const commands = {
   },
   cmd_historyBack: function historyBack() {
     window.history.back()
+  },
+  cmd_scrollHalfPageUp() {
+    window.scrollBy({ top: -(window.innerHeight / 2), behavior: 'instant' })
+  },
+  cmd_scrollHalfPageDown() {
+    window.scrollBy({ top: window.innerHeight / 2, behavior: 'instant' })
   },
 }
 
