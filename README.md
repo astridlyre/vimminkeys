@@ -1,3 +1,6 @@
+![Star Rating](https://img.shields.io/amo/stars/vimminkeys)
+![Addon Version](https://img.shields.io/amo/v/ebflat9@vimminkeys.id)
+
 # Firefox extension with a minimal set of Vim keybindings
 
 - [Install](https://addons.mozilla.org/en-US/firefox/addon/vimminkeys/)
