@@ -3,16 +3,11 @@
   "name": "vimminkeys",
   "description": "Minimal Vim directional keybindings for Firefox.",
   "author": "Erin Burton",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "applications": {
     "gecko": {
       "id": "ebflat9@vimminkeys.id"
     }
-  },
-  "background": {
-    "scripts": [
-      "background.js"
-    ]
   },
   "content_scripts": [
     {

@@ -1,156 +1,97 @@
 const SCROLL_LINE_COUNT = 5
-const SCROLL_HORIZONTAL_PIXELS = 20
-const normalize = (repetition) => (repetition == '' ? 1 : +repetition)
 
-const actions = [
-  { keyCombination: 'h', command: 'cmd_scrollLeft' },
-  { keyCombination: 'j', command: 'cmd_scrollLineDown' },
-  { keyCombination: 'k', command: 'cmd_scrollLineUp' },
-  { keyCombination: 'l', command: 'cmd_scrollRight' },
-  { keyCombination: 'G', command: 'cmd_scrollFileBottom' },
-  { keyCombination: 'gg', command: 'cmd_scrollFileTop' },
-  { keyCombination: 'gt', command: 'cmd_activateNextTab' },
-  { keyCombination: 'gT', command: 'cmd_activatePreviousTab' },
-  { keyCombination: 'H', command: 'cmd_historyBack' },
-  { keyCombination: 'L', command: 'cmd_historyForward' },
-  { keyCombination: 'd', command: 'cmd_scrollHalfPageDown' },
-  { keyCombination: 'u', command: 'cmd_scrollHalfPageUp' },
-]
+const SCROLL_HORIZONTAL_PIXELS = 20
+
+const MAX_KEY_COMBO_LENGTH = 2
+
+const numberRegex = /$[0-9]^/
+
+const isNumber = (key) => numberRegex.test(key)
+
+const formElements = ['input', 'textarea', 'select']
+
+const isFormElement = (element) => formElements.includes(element)
+
+const isContentEditable = (element) =>
+  Boolean(element.getAttribute('contenteditable'))
 
 const commands = {
-  cmd_scrollLeft: function scrollLeft(repetition) {
-    document.body.scrollLeft -= SCROLL_HORIZONTAL_PIXELS * normalize(repetition)
+  h: function scrollLeft() {
+    document.body.scrollLeft -= SCROLL_HORIZONTAL_PIXELS
   },
-  cmd_scrollRight: function scrollRight(repetition) {
-    document.body.scrollLeft += SCROLL_HORIZONTAL_PIXELS * normalize(repetition)
+  l: function scrollRight() {
+    document.body.scrollLeft += SCROLL_HORIZONTAL_PIXELS
   },
-  cmd_scrollLineDown: function scrollLineDown(repetition) {
-    window.scrollByLines(SCROLL_LINE_COUNT * normalize(repetition))
+  j: function scrollLineDown() {
+    window.scrollByLines(SCROLL_LINE_COUNT)
   },
-  cmd_scrollLineUp: function scollLineUp(repetition) {
-    window.scrollBy(-SCROLL_LINE_COUNT * normalize(repetition))
+  k: function scollLineUp() {
+    window.scrollByLines(-SCROLL_LINE_COUNT)
   },
-  cmd_scrollFileBottom: function scrollToBottom() {
+  G: function scrollToBottom() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })
   },
-  cmd_scrollFileTop: function scrollToTop() {
+  gg: function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   },
-  cmd_activateNextTab: function activateNextTab(repetition) {
-    browser.runtime.sendMessage({
-      message: {
-        to: 'background',
-        command: 'activateNextTab',
-        repetition,
-      },
-    })
-  },
-  cmd_activatePreviousTab: function activatePreviousTab(repetition) {
-    browser.runtime.sendMessage({
-      message: {
-        command: 'activatePreviousTab',
-        repetition,
-      },
-    })
-  },
-  cmd_historyForward: function historyForward() {
+  L: function historyForward() {
     window.history.forward()
   },
-  cmd_historyBack: function historyBack() {
+  H: function historyBack() {
     window.history.back()
   },
-  cmd_scrollHalfPageUp() {
-    window.scrollBy({ top: -(window.innerHeight / 2), behavior: 'instant' })
-  },
-  cmd_scrollHalfPageDown() {
+  d: function scrollHalfPageDown() {
     window.scrollBy({ top: window.innerHeight / 2, behavior: 'instant' })
   },
+  u: function scrollHalfPageUp() {
+    window.scrollBy({ top: -(window.innerHeight / 2), behavior: 'instant' })
+  },
 }
 
-//Store the longest action combination's length as the max length
-const maxCombinationLength = actions.reduce(
-  (acc, curr) => Math.max(curr.keyCombination.length, acc),
-  0,
-)
-const numbers = []
-const validKeys = new Set()
-let repetition = ''
-let keyCombination = ''
+const keyBuffer = (() => {
+  let lettersBuffer = ''
 
-//Stringify numbers
-for (let i = 0; i < 10; ++i) {
-  numbers.push(`${i}`)
-}
-
-actions.map((action) => {
-  for (let i = 0; i < action.keyCombination.length; ++i) {
-    validKeys.add(action.keyCombination[i])
+  const clearBuffers = () => {
+    lettersBuffer = ''
   }
-})
 
-/**
- * Resets the repetition and key combination histories
- * @method
- */
-function resetHistory() {
-  repetition = ''
-  keyCombination = ''
-}
+  const commandLetters = new Set(
+    Object.keys(commands).flatMap((key) => [...key]),
+  )
 
-/**
- * Runs an action
- * @param {vimmin~action} action
- */
-function runAction(action) {
-  commands[action.command](repetition)
-  resetHistory()
-}
+  return {
+    add(key) {
+      if (!commandLetters.has(key)) {
+        return clearBuffers() // clear buffers if not a command key
+      }
+
+      lettersBuffer += key
+
+      if (lettersBuffer in commands) {
+        commands[lettersBuffer]()
+        clearBuffers()
+      }
+
+      if (lettersBuffer.length >= MAX_KEY_COMBO_LENGTH) {
+        return clearBuffers()
+      }
+    },
+    clear() {
+      return clearBuffers()
+    },
+  }
+})()
 
 function handleKeyEvents(event) {
-  //Check if a number key is pressed (for repetition)
-  if (numbers.includes(event.key)) {
-    repetition += event.key
-    return
+  if (
+    isContentEditable(event.target) ||
+    isFormElement(event.target.tagName.toLowerCase())
+  ) {
+    return keyBuffer.clear()
   }
 
-  //If a non-command key is pressed, bail
-  if (!validKeys.has(event.key)) {
-    resetHistory()
-    return
-  }
-
-  //Store the key
-  keyCombination += event.key
-
-  // see if the key combination matches one of our vim command combinations
-  const action = actions.find((value) => value.keyCombination == keyCombination)
-
-  // bail if not supported action
-  if (!action) {
-    //If the combination length is reached the max length, there are no possible actions left.
-    if (keyCombination.length == maxCombinationLength) resetHistory()
-    return
-  }
-
-  // bail if in contenteditable elements, textareas, inputs, etc
-  const contentEditable = event.target.getAttribute('contenteditable')
-  const formElements = ['input', 'textarea', 'select']
-  const isFormElement =
-    formElements.indexOf(event.target.tagName.toLowerCase()) != -1
-
-  if (contentEditable || isFormElement) {
-    resetHistory()
-    return
-  }
-
-  runAction(action)
+  event.stopPropagation()
+  keyBuffer.add(event.key)
 }
 
 document.addEventListener('keypress', handleKeyEvents, false)
-
-/**
- * @typedef vimmin~action
- * @type {object}
- * @property {string} keyCombination The keystroke combination
- * @property {string} command The name of the command function
- */
